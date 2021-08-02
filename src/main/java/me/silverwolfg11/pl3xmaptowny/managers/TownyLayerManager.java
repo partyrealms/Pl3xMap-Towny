@@ -257,7 +257,9 @@ public class TownyLayerManager {
                                 .hoverTooltip(hoverTooltip)
                         );
 
-                        worldProvider.addMarker(townIconKey, iconMarker);
+                        if (tre.isCapital()) {
+                            worldProvider.addMarker(townIconKey, iconMarker);
+                        }
                     }
                 }
             }

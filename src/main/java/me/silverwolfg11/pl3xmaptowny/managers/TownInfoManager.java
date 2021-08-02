@@ -24,7 +24,9 @@ package me.silverwolfg11.pl3xmaptowny.managers;
 
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.TownyEconomyHandler;
+import com.palmergames.bukkit.towny.TownyFormatter;
 import com.palmergames.bukkit.towny.TownySettings;
+import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Government;
 import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.bukkit.towny.object.TownyObject;
@@ -101,7 +103,13 @@ public class TownInfoManager {
 
     private void registerReplacements() {
         register("town", TownyObject::getName);
-        register("mayor", t -> t.getMayor().getName());
+        register("mayor", t -> {
+            if (t.getMayor() != null) {
+                return t.getMayor().getName();
+            } else {
+                return "";
+            }
+        });
         register("firespread", t -> String.valueOf(t.getPermissions().fire));
         register("pvp", t -> String.valueOf(t.getPermissions().pvp));
         register("explosion", t -> String.valueOf(t.getPermissions().explosion));
@@ -110,58 +118,38 @@ public class TownInfoManager {
             String residents = t.getResidents().stream().map(TownyObject::getName).collect(Collectors.joining(", "));
             return residents.isEmpty() ? "None" : residents;
         });
-        register("residentdisplaynames", t -> {
-            String residents = t.getResidents()
-                    .stream()
-                    .map(r -> {
-                        Player resPlayer = r.getPlayer();
-                        return resPlayer != null ? resPlayer.getDisplayName() : r.getFormattedName();
-                    })
-                    .collect(Collectors.joining(", "));
-
-            return residents.isEmpty() ? "None" : residents;
+        register("nation-role", t -> {
+            String nationRole = "";
+            String nation = "";
+            try {
+                if(t.hasNation()) {
+                    nation = t.getNation().getName();
+                }
+            } catch (NotRegisteredException e) {
+                e.printStackTrace();
+            }
+            if (t.isCapital()) {
+                nationRole = "Capital of " + nation;
+            } else if (t.hasNation()) {
+                nationRole = "Member of " + nation;
+            }
+            return nationRole;
         });
-        register("residentcount", t -> String.valueOf(t.getNumResidents()));
+        register("tax", t -> {
+            if (!t.isTaxPercentage()) {
+                return "$" + t.getTaxes();
+            } else {
+                return t.getTaxes() + "%";
+            }
+        });
+        register("resident-count", t -> String.valueOf(t.getResidents().size()));
+        register("founded", t -> t.getRegistered() != 0 ? TownyFormatter.registeredFormat.format(t.getRegistered()) : "?");
         register("board", Government::getBoard);
-        register("nationstatus", t -> {
-            if (!t.hasNation())
-                return "";
-
-            final String nationName = TownyAPI.getInstance().getTownNationOrNull(t).getName();
-            return t.isCapital() ? "Capital of " + nationName : "Member of " + nationName;
-        });
-
-        register("founded", t -> {
-            long founded = t.getRegistered();
-            if (founded == 0)
-                return "Not Set";
-
-            return registeredTimeFormat.format(new Date(founded));
-        });
-
+        register("bank", t -> "$" + t.getAccount().getCachedBalance());
+        register("upkeep", t -> "$" + TownySettings.getTownUpkeepCost(t));
         registerParenthesesReplacement("nation",
                 t-> t.hasNation() ? TownyAPI.getInstance().getTownNationOrNull(t).getName() : ""
         );
-
-        // Register Economy Replacements
-        if (TownyEconomyHandler.isActive() && TownySettings.isUsingEconomy()) {
-            register("tax", t -> {
-                if (t.isTaxPercentage()) {
-                    return "%" + t.getTaxes();
-                }
-
-                return TownyEconomyHandler.getFormattedBalance(t.getTaxes());
-            });
-            register("upkeep", t -> {
-                if (!t.hasUpkeep())
-                    return "";
-
-                return TownyEconomyHandler.getFormattedBalance(TownySettings.getTownUpkeepCost(t));
-            });
-            register("bank",
-                    t -> TownyEconomyHandler.getFormattedBalance(t.getAccount().getCachedBalance())
-            );
-        }
 
         registerRanks();
     }
